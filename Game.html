@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>15-Puzzle (HTML/JS)</title>
+  <style>
+    :root {
+      --bg: #0f172a;        /* slate-900 */
+      --panel: #111827;     /* gray-900 */
+      --tile: #1f2937;      /* gray-800 */
+      --tile-hover: #374151;/* gray-700 */
+      --accent: #22d3ee;    /* cyan-400 */
+      --win: #10b981;       /* emerald-500 */
+      --text: #e5e7eb;      /* gray-200 */
+      --muted: #9ca3af;     /* gray-400 */
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+        Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 10% -10%, #0b1024, var(--bg));
+      color: var(--text);
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: min(92vw, 540px);
+    }
+    .card {
+      background: linear-gradient(180deg, #0b1227, var(--panel));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    h1 {
+      margin: 0 0 12px 0;
+      font-size: clamp(20px, 3vw, 28px);
+      letter-spacing: 0.3px;
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .toolbar { 
+      display: flex; 
+      gap: 10px; 
+      align-items: center; 
+      justify-content: space-between; 
+      flex-wrap: wrap; 
+      margin-bottom: 14px;
+    }
+    .stats { display: flex; gap: 14px; align-items: center; }
+    .pill { 
+      background: #0b1327; 
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 8px 12px; 
+      border-radius: 999px; 
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+    }
+    .btn {
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #0ea5b9, #0891b2);
+      color: #001218;
+      font-weight: 700;
+      letter-spacing: .2px;
+      box-shadow: 0 6px 18px rgba(34, 211, 238, .25);
+      transition: transform .06s ease, filter .2s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+
+    .board-wrap { position: relative; }
+    .board {
+      width: min(92vw, 520px);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 10px;
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .tile {
+      display: grid; place-items: center;
+      background: linear-gradient(180deg, #111927, var(--tile));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: clamp(18px, 4.6vw, 28px);
+      user-select: none;
+      box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+      transition: transform .15s ease, background .2s ease, box-shadow .2s ease;
+    }
+    .tile:not(.blank):hover { background: var(--tile-hover); }
+    .tile.blank {
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+      box-shadow: none;
+    }
+    .kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #0b1327; border: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 2px solid rgba(255,255,255,0.12);
+      padding: 2px 6px; border-radius: 6px; font-size: 12px; color: var(--text);
+    }
+    .toast {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      background: rgba(0,0,0,.45);
+      border-radius: 18px;
+      backdrop-filter: blur(2px);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; }
+    .toast .msg {
+      background: linear-gradient(180deg, #0b2a1f, #052016);
+      border: 1px solid rgba(16,185,129,.35);
+      color: #d1fae5;
+      padding: 16px 18px; border-radius: 14px; font-weight: 700;
+      box-shadow: 0 10px 30px rgba(16,185,129,.25);
+    }
+    .footer { margin-top: 12px; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>15‑Puzzle</h1>
+      <div class="sub">Arrange tiles <strong>1 → 15</strong> with the blank at the end. Use mouse/touch or <span class="kbd">Arrow Keys</span>.</div>
+      <div class="toolbar">
+        <div class="stats">
+          <div class="pill" id="moves">Moves: 0</div>
+          <div class="pill" id="timer">Time: 00:00</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn" id="newGame">New Game</button>
+          <button class="btn" id="solveDemo" title="Show goal state">Solve</button>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div id="board" class="board" role="grid" aria-label="15-puzzle board"></div>
+        <div id="toast" class="toast" aria-live="polite" aria-atomic="true">
+          <div class="msg">🎉 You solved it! Great job.</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        Tip: Click or tap a tile adjacent to the blank to move it. Long‑press on mobile to nudge.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Utilities ---
+    const size = 4;
+    const goal = [...Array(15).keys()].map(n => n + 1).concat(0);
+
+    function clone(a){ return JSON.parse(JSON.stringify(a)); }
+
+    function coordsFromIndex(i){ return { r: Math.floor(i/size), c: i % size }; }
+    function indexFromRC(r,c){ return r*size + c; }
+
+    // Count inversions (ignoring 0)
+    function inversionCount(arr){
+      let inv = 0;
+      for (let i=0;i<arr.length;i++){
+        for (let j=i+1;j<arr.length;j++){
+          if (arr[i] && arr[j] && arr[i] > arr[j]) inv++;
+        }
+      }
+      return inv;
+    }
+
+    // Solvability for even grid (size=4)
+    function isSolvable(arr){
+      const inv = inversionCount(arr);
+      const blankIndex = arr.indexOf(0);
+      const blankRowFromBottom = size - Math.floor(blankIndex / size);
+      if (size % 2 === 1) return inv % 2 === 0; // odd grid
+      // even grid
+      if (blankRowFromBottom % 2 === 0) return inv % 2 === 1;
+      return inv % 2 === 0;
+    }
+
+    function shuffledSolvable(){
+      let arr;
+      do {
+        arr = clone(goal);
+        // Fisher-Yates
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      } while (!isSolvable(arr) || arraysEqual(arr, goal));
+      return arr;
+    }
+
+    function arraysEqual(a,b){
+      if (a.length !== b.length) return false;
+      for (let i=0;i<a.length;i++) if (a[i] !== b[i]) return false;
+      return true;
+    }
+
+    // --- Game State ---
+    let state = {
+      arr: shuffledSolvable(),
+      moves: 0,
+      startTs: Date.now(),
+      timerId: null,
+      solved: false
+    };
+
+    const boardEl = document.getElementById('board');
+    const movesEl = document.getElementById('moves');
+    const timerEl = document.getElementById('timer');
+    const toastEl = document.getElementById('toast');
+
+    function formatTime(ms){
+      const total = Math.floor(ms/1000);
+      const m = String(Math.floor(total/60)).padStart(2,'0');
+      const s = String(total%60).padStart(2,'0');
+      return `${m}:${s}`;
+    }
+
+    function startTimer(){
+      if (state.timerId) clearInterval(state.timerId);
+      state.startTs = Date.now();
+      timerEl.textContent = 'Time: 00:00';
+      state.timerId = setInterval(()=>{
+        timerEl.textContent = 'Time: ' + formatTime(Date.now() - state.startTs);
+      }, 500);
+    }
+
+    function stopTimer(){
+      if (state.timerId) clearInterval(state.timerId);
+      state.timerId = null;
+    }
+
+    function render(){
+      boardEl.innerHTML = '';
+      state.arr.forEach((val, i) => {
+        const tile = document.createElement('button');
+        tile.className = 'tile' + (val===0 ? ' blank' : '');
+        tile.setAttribute('role', 'gridcell');
+        tile.setAttribute('aria-label', val===0 ? 'blank' : String(val));
+        tile.textContent = val === 0 ? '' : val;
+        tile.addEventListener('click', () => tryMoveIndex(i));
+        boardEl.appendChild(tile);
+      });
+      movesEl.textContent = 'Moves: ' + state.moves;
+    }
+
+    function tryMoveIndex(idx){
+      if (state.solved) return;
+      const blank = state.arr.indexOf(0);
+      const {r:br, c:bc} = coordsFromIndex(blank);
+      const {r, c} = coordsFromIndex(idx);
+      const isAdj = (Math.abs(br - r) + Math.abs(bc - c)) === 1;
+      if (!isAdj) return;
+      [state.arr[blank], state.arr[idx]] = [state.arr[idx], state.arr[blank]];
+      state.moves += 1;
+      render();
+      checkSolved();
+    }
+
+    function nudge(dir){
+      // dir: 'up','down','left','right' – move BLANK in that direction if possible
+      const b = state.arr.indexOf(0);
+      const {r, c} = coordsFromIndex(b);
+      const delta = { up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] }[dir];
+      const nr = r + delta[0], nc = c + delta[1];
+      if (nr < 0 || nr >= size || nc < 0 || nc >= size) return;
+      const tgt = indexFromRC(nr,nc);
+      [state.arr[b], state.arr[tgt]] = [state.arr[tgt], state.arr[b]];
+      state.moves += 1;
+      render();
+      checkSolved();
+    }
+
+    function checkSolved(){
+      if (arraysEqual(state.arr, goal)){
+        state.solved = true;
+        stopTimer();
+        toastEl.classList.add('show');
+        setTimeout(()=>toastEl.classList.remove('show'), 1800);
+      }
+    }
+
+    function newGame(){
+      state.arr = shuffledSolvable();
+      state.moves = 0;
+      state.solved = false;
+      startTimer();
+      render();
+    }
+
+    // --- Controls ---
+    document.getElementById('newGame').addEventListener('click', newGame);
+    document.getElementById('solveDemo').addEventListener('click', ()=>{
+      state.arr = clone(goal);
+      state.moves = 0;
+      state.solved = false;
+      startTimer();
+      render();
+      checkSolved();
+    });
+
+    // Keyboard
+    window.addEventListener('keydown', (e)=>{
+      const k = e.key;
+      if (k === 'ArrowUp') { e.preventDefault(); nudge('up'); }
+      else if (k === 'ArrowDown') { e.preventDefault(); nudge('down'); }
+      else if (k === 'ArrowLeft') { e.preventDefault(); nudge('left'); }
+      else if (k === 'ArrowRight') { e.preventDefault(); nudge('right'); }
+      else if (k.toLowerCase() === 'r') { e.preventDefault(); newGame(); }
+    });
+
+    // Touch swipe support (simple)
+    let touchStart = null;
+    boardEl.addEventListener('touchstart', (e)=>{
+      if (!e.touches[0]) return; touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }, {passive:true});
+    boardEl.addEventListener('touchend', (e)=>{
+      if (!touchStart) return; const t = e.changedTouches[0];
+      const dx = t.clientX - touchStart.x; const dy = t.clientY - touchStart.y;
+      const ax = Math.abs(dx), ay = Math.abs(dy);
+      if (Math.max(ax,ay) < 24) return; // ignore tiny movements
+      if (ax > ay) nudge(dx > 0 ? 'right' : 'left'); else nudge(dy > 0 ? 'down' : 'up');
+      touchStart = null;
+    }, {passive:true});
+
+    // Init
+    startTimer();
+    render();
+  </script>
+</body>
+</html>
