@@ -1,4 +1,4 @@
-##Author :Akshay Dholakiya
+# Author :Akshay Dholakiya
 
 #  15 Puzzle Game
 
